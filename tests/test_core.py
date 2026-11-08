@@ -92,3 +92,31 @@ def test_scrub_preserves_foreground_and_level():
     err = np.std(y[on] - (bg + voice)[on]) / np.std(voice[on])
     assert err < 0.35
     assert abs(20 * np.log10(np.std(y) / np.std(bg + voice))) < 1.0
+
+
+def test_adsb_log_roundtrip(tmp_path):
+    """A log in adsb.lol format comes back as a track close to the true path."""
+    import json, math
+    from flyover_scrub.adsb import FT, load_tracks
+
+    lat0, lon0, R = 41.9, -87.7, 6371008.8
+    trk = make_track(1000.0, 200.0, start_xy=(-6000.0, 300.0), altitude=800.0, speed=70.0, heading_deg=0.0)
+    rng = np.random.default_rng(0)
+    lines = [json.dumps({"meta": {}})]
+    for now in np.arange(1003.0, 1197.0, 5.0):
+        seen = float(rng.uniform(0, 2))
+        p = trk.resample(np.array([now - seen])).pos[0]
+        lines.append(json.dumps({"now": now, "ac": [{
+            "hex": "a1", "flight": "T1", "t": "C172", "category": "A1",
+            "lat": lat0 + math.degrees(p[1] / R),
+            "lon": lon0 + math.degrees(p[0] / (R * math.cos(math.radians(lat0)))),
+            "alt_geom": p[2] / FT, "alt_baro": None, "seen_pos": seen}]}))
+        lines.append(json.dumps({"now": now, "ac": [{"hex": "gnd", "lat": lat0, "lon": lon0, "alt_baro": "ground"}]}))
+    log = tmp_path / "f.jsonl"
+    log.write_text("\n".join(lines))
+    tracks = load_tracks(log, lat0, lon0)
+    assert set(tracks) == {"a1"}  # aircraft on the ground are skipped
+    got = tracks["a1"]["track"]
+    ref = trk.resample(got.t[(got.t > 1020) & (got.t < 1180)])
+    err = np.linalg.norm(got.resample(ref.t).pos - ref.pos, axis=1).max()
+    assert err < 15.0

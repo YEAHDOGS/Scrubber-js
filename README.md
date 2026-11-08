@@ -9,6 +9,41 @@ flyover-scrub input.mov -o output.mov     # audio scrubbed, video copied, metada
 flyover-scrub --check input.mp4           # report long tonal ridges, write nothing
 ```
 
+## Audit your own recordings against real flights
+
+```sh
+# 1. While you record, log aircraft around where you are (gently: one small
+#    request every 5 s to the free adsb.lol community API, with backoff).
+flyover-capture --at 42.36,-83.13 --minutes 15 -o flights.jsonl
+
+# 2. Ask: would the attack have found me? And after scrubbing?
+flyover-audit recording.mov --flights flights.jsonl --scrub
+```
+
+```
+  N123AB (C172, cat A1) closest 1.1 km
+    original  top guess    158 m from you, your spot ranked 3/1357, signal 34.4x chance  -> EXPOSED
+    scrubbed  top guess   1553 m from you, your spot ranked 506/1352, signal  1.1x chance  -> not located
+```
+
+The audit reads the start time and position from the file's own tags (iPhone
+`.MOV` has both), or takes `--start` and `--at`. It **requires your true
+location**. It answers "am I exposed?" and isn't meant for locating recordings you
+didn't make. For the same reason, there's no bulk or historical flight download.
+
+"Signal × chance" compares the best match against the same search run on the
+time-reversed spectrogram, where aircraft lines rise instead of falling and can
+only match by chance. It reads ~0.5 with no aircraft, ~1–2 after scrubbing and
+20–35 for an inaudible light-aircraft flyover. The verdict threshold is 4. These
+calibration numbers come from a handful of synthetic cases; treat borderline
+results with care.
+
+Notes: the live API only records the present, so start `flyover-capture` before
+you record. Exports, edits and messaging apps often rewrite a file's creation
+date, so pass `--start` if the file has been through anything. Each aircraft is
+audited separately; jets and helicopters are tested too, though the scorer was
+tuned on propeller tones.
+
 ## The attack
 
 [colsto showed](https://www.youtube.com/watch?v=UytYrhYLOKI) that one minute of

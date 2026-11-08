@@ -24,3 +24,5 @@ dev = [
 
 [project.scripts]
 flyover-scrub = "flyover_scrub.cli:main"
+flyover-capture = "flyover_scrub.adsb:main"
+flyover-audit = "flyover_scrub.audit:main"
