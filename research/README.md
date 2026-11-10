@@ -169,7 +169,7 @@ Recorded away from home, matched to their iPhone camera originals and measured a
 ```
 band-poc/                 the band clip (original and scrubbed audio), ADS-B for every aircraft nearby, ground truth
 data/                     ladder, line-strength and platform measurements (CSV and JSON)
-figures/                  plots
+figures/                  plots; figures/video/ = 1920x1080 video graphics (scripts/make_video_figures.py)
 scripts/run_poc.py        reproduce the band proof of concept from the repo
 scripts/ladder.sh         codec/processing ladder (+ trace_attack_research.py, the script it calls)
 scripts/linesnr.py        line strength through each chain
