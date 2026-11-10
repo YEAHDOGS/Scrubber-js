@@ -138,3 +138,26 @@ def test_trace_fit_finds_truth_and_rejects_reversal():
     s = res.summary(np.zeros(2))
     assert s["top_error_m"] < 400
     assert reversal_ratio(ridge, trk, 90.0, res) > 3
+
+
+def test_enf_detected_in_grid_hum_and_removed_by_scrub():
+    from flyover_scrub.enf import detect_enf
+
+    sr = 8000
+    n = sr * 90
+    t = np.arange(n) / sr
+    rng = np.random.default_rng(2)
+    # grid frequency wandering by a few hundredths of a hertz around 60 Hz
+    wander = 60 + 0.02 * np.sin(2 * np.pi * t / 37) + 0.01 * np.sin(2 * np.pi * t / 11)
+    phase = 2 * np.pi * np.cumsum(wander) / sr
+    hum = 0.05 * np.sin(2 * phase) + 0.03 * np.sin(4 * phase)  # 120 and 240 Hz, as transformers hum
+    noise = rng.normal(size=n) * 0.3
+    res = detect_enf(hum + noise, sr)
+    assert res.present and res.nominal_hz == 60
+    assert abs(res.grid_hz - 60) < 0.01
+    assert not detect_enf(noise, sr).present
+    # a machine tone that drifts independently at each "harmonic" is not ENF
+    fan = 0.05 * np.sin(2 * np.pi * 120.3 * t) + 0.03 * np.sin(2 * np.pi * 239.1 * t)
+    assert not detect_enf(fan + noise, sr).present
+    y, _ = scrub(hum + noise, sr, ScrubConfig(seed=0))
+    assert not detect_enf(y, sr).present

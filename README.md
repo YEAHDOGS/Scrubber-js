@@ -30,6 +30,10 @@ flyover-scrub input.mov -o output.mov     # audio scrubbed, video copied, metada
 flyover-scrub --check input.mp4           # report long tonal ridges, write nothing
 ```
 
+Both modes also report **grid hum (ENF)**: mains hum whose frequency wanders with the power grid, which can date
+a recording and tell which grid it was made on. Scrubbing removes it by default (`--keep-hum` keeps it). See
+[`research/`](research/README.md#5-the-other-leak-grid-hum-enf).
+
 ## Audit your own recordings against real flights
 
 ```sh

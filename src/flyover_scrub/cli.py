@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from .enf import detect_enf
 from .scrub import ScrubConfig, scrub
 
 NATIVE = {".wav", ".flac", ".aiff", ".aif", ".ogg"}
@@ -76,6 +77,8 @@ def main(argv: list[str] | None = None) -> None:
             f"{a.input.name}: {x.shape[0] / sr:.1f}s @ {sr} Hz, {x.shape[1]} ch | "
             f"tonal ridges: {rep.ridges_found} | in-band bins replaced: {rep.replaced_fraction:.0%}"
         )
+        enf_in = detect_enf(x.mean(axis=1), sr)
+        print(f"  {enf_in.describe()}")
         if a.check:
             if rep.ridges_found:
                 print("  long narrowband tones present (aircraft, drones, traffic, HVAC or hum).")
@@ -83,6 +86,10 @@ def main(argv: list[str] | None = None) -> None:
             print("  recoverable by a matched filter, so scrub anyway if location matters.")
             return
 
+        if enf_in.present:
+            enf_out = detect_enf(y.mean(axis=1), sr)
+            print(f"  after scrubbing: {enf_out.describe()}"
+                  + (" (--keep-hum keeps it)" if a.keep_hum and enf_out.present else ""))
         peak = float(np.abs(y).max())
         if peak > 1.0:
             y = y / peak
