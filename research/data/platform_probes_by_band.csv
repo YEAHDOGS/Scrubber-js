@@ -1,0 +1,11 @@
+path,band_hz,n_probes,median_change_db,iqr_lo_db,iqr_hi_db,still_visible_pct,faint_still_visible_pct
+tiktok_app_save->tiktok,20-60,2015,-0.08,-0.5,0.18,95.0,91.8
+tiktok_app_save->tiktok,60-150,1404,-0.03,-0.29,0.24,97.2,95.3
+tiktok_app_save->tiktok,150-400,731,0.0,-0.3,0.29,97.1,95.9
+tiktok_app_save->tiktok,400-1000,209,-0.03,-0.34,0.22,97.6,97.0
+tiktok_app_save->tiktok,20-1000,4359,-0.05,-0.38,0.22,96.2,93.9
+tiktok_app_save->instagram,20-60,2015,-1.48,-4.38,0.89,73.9,60.5
+tiktok_app_save->instagram,60-150,1404,-1.13,-3.97,1.32,77.2,64.8
+tiktok_app_save->instagram,150-400,731,-1.04,-3.88,1.32,74.4,66.2
+tiktok_app_save->instagram,400-1000,209,-1.43,-4.11,0.57,67.5,59.1
+tiktok_app_save->instagram,20-1000,4359,-1.32,-4.15,1.13,74.7,62.8

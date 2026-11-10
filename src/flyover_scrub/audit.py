@@ -29,6 +29,7 @@ from .adsb import load_tracks
 from .attack import Spectrogram, locate, score_candidates, whitened_spectrogram
 from .physics import received_doppler
 from .scrub import ScrubConfig, scrub
+from .trace import locate_trace, reversal_ratio, trace_ridge
 
 SR = 16000
 
@@ -48,7 +49,29 @@ def file_metadata(path: Path) -> dict:
     return meta
 
 
-def audit_flight(audio, t0, trk, *, half_width, label, log):
+def trace_flight(audio, t0, trk, band, *, half_width, label, log):
+    """Trace-fit attack on a band you can see in the spectrogram (t_lo, t_hi, f_lo, f_hi)."""
+    tlo, thi, flo, fhi = band
+    spec = whitened_spectrogram(audio, SR, window_s=2.0)
+    ridge = trace_ridge(spec, f_range=(flo, fhi), t_range=(tlo, thi))
+    if len(ridge) < 20:
+        log(f"    {label:9s} trace-fit: no traceable line in {flo:g}-{fhi:g} Hz ({len(ridge)} frames)")
+        return {"trace_frames": len(ridge), "trace_verdict": "no line"}
+    res = locate_trace(ridge, trk, t0, (0.0, 0.0), half_width=half_width)
+    if not np.isfinite(res.scores).any():
+        return {"trace_frames": len(ridge), "trace_verdict": "no coverage"}
+    s = res.summary(np.zeros(2))
+    rr = reversal_ratio(ridge, trk, t0, res)
+    fit = -s["top_score"]
+    v = ("EXPOSED" if s["top_error_m"] <= 300 else "partly exposed" if s["top_error_m"] <= 1000 else "points elsewhere") \
+        if rr >= 3 else "fits backwards too (chance)"
+    log(f"    {label:9s} trace-fit: {len(ridge)} frames, fit {fit:.1f} cents, top guess {s['top_error_m']:.0f} m from you, "
+        f"rank {s['truth_rank']}/{s['n_candidates']}, reversal ratio {rr:.1f}  -> {v}")
+    return {"trace_frames": len(ridge), "trace_fit_cents": fit, "trace_top_error_m": s["top_error_m"],
+            "trace_truth_rank": s["truth_rank"], "trace_reversal_ratio": rr, "trace_verdict": v}
+
+
+def audit_flight(audio, t0, trk, *, half_width, label, log, trace=None):
     """Attack one flight. Returns a summary dict (truth = local origin)."""
     obs = np.zeros(3)
     # crop to +-75 s around when the truth location hears closest approach
@@ -66,9 +89,15 @@ def audit_flight(audio, t0, trk, *, half_width, label, log):
     spec = whitened_spectrogram(clip, SR)
     t_clip = t0 + a / SR
     offsets = np.arange(-4.0, 4.01, 0.25)
-    # fundamental: an attacker reads it off the visible line; we sweep it at truth
-    wide = score_candidates(spec, [trk], t_clip, obs[None, :], f0_range=(40.0, 400.0), f0_step=0.5, offsets=offsets)
-    f0 = float(wide.best_f0[0])
+    # Fundamental: sweep it on a 3 x 3 grid of spots spread over the search box and
+    # keep the best, as an attacker without the answer would. (Sweeping it at the
+    # true spot tuned f0 for the truth and inflated its rank, even on scrubbed or
+    # time-reversed audio.)
+    h = half_width / 2
+    probes = np.array([[x, y, 0.0] for x in (-h, 0.0, h) for y in (-h, 0.0, h)])
+    probes[:, :2] += np.random.default_rng(11).uniform(-h / 2, h / 2, (len(probes), 2))
+    wide = score_candidates(spec, [trk], t_clip, probes, f0_range=(40.0, 400.0), f0_step=0.5, offsets=offsets)
+    f0 = float(wide.best_f0[int(np.argmax(wide.scores))])
     res = locate(spec, [trk], t_clip, (0.0, 0.0), half_width=half_width,
                  f0_range=(f0 - 3, f0 + 3), offsets=offsets)
     s = res.summary(np.zeros(2))
@@ -84,15 +113,22 @@ def audit_flight(audio, t0, trk, *, half_width, label, log):
     strength = (s["top_score"] - med) / max(float(null.max()) - med, 1e-9)
     s.update({"cpa_horizontal_m": float(np.nanmin(r)), "f0_hz": f0, "variant": label,
               "strength_vs_chance": float(strength)})
-    real = strength >= 4.0  # measured: aircraft-free ~0.5, scrubbed ~2, inaudible flyover ~25
+    real = strength >= 4.0  # measured: aircraft-free ~0.5, scrubbed ~1-2, inaudible synthetic flyover ~25
+    near = s["top_error_m"] <= 300 or (s["truth_rank"] is not None and s["truth_rank"] <= 10)
     if real and s["top_error_m"] <= 300:
         s["verdict"] = "EXPOSED"
     elif real and s["truth_rank"] and s["truth_rank"] <= 50:
         s["verdict"] = "partly exposed"
     elif real:
         s["verdict"] = "signal, but points elsewhere"
+    elif near and strength >= 2.0:
+        # A real Cessna flyover scored ~2-3x chance here yet put the true spot first:
+        # real lines are weaker for this scorer than synthetic ones. Err towards warning.
+        s["verdict"] = "possibly exposed"
     else:
         s["verdict"] = "not located"
+    if trace is not None:
+        s.update(trace_flight(audio, t0, trk, trace, half_width=half_width, label=label, log=log))
     log(f"    {label:9s} top guess {s['top_error_m']:6.0f} m from you, your spot ranked "
         f"{s['truth_rank']}/{s['n_candidates']}, signal {strength:4.1f}x chance  -> {s['verdict']}")
     return s
@@ -109,6 +145,8 @@ def main(argv=None):
     ap.add_argument("--half-width", type=float, default=3000.0, help="search box half-width around you (m)")
     ap.add_argument("--scrub", action="store_true", help="also audit the scrubbed audio")
     ap.add_argument("--json", type=Path, help="write results here")
+    ap.add_argument("--trace", help="also run the trace-fit attack on a line you can see: T_LO,T_HI,F_LO,F_HI "
+                    "(seconds from the start, Hz), e.g. 10,75,65,95")
     a = ap.parse_args(argv)
 
     meta = file_metadata(a.recording)
@@ -160,14 +198,17 @@ def main(argv=None):
     for cpa, hx, d in near:
         print(f"  {d['flight'] or hx} ({d['type'] or '?'}, cat {d['category'] or '?'}) closest {cpa / 1000:.1f} km")
         for label, sig in [("original", audio)] + ([("scrubbed", scrubbed)] if scrubbed is not None else []):
-            s = audit_flight(sig, t0, d["track"], half_width=a.half_width, label=label, log=print)
+            s = audit_flight(sig, t0, d["track"], half_width=a.half_width, label=label, log=print,
+                             trace=tuple(map(float, a.trace.split(","))) if a.trace else None)
             if s:
                 s.update({"hex": hx, **{k: d[k] for k in ("flight", "type", "category")}})
                 results.append(s)
     if a.json:
         a.json.write_text(json.dumps(results, indent=2))
-    worst = [r for r in results if r["variant"] == "original" and r["verdict"] == "EXPOSED"]
-    print(f"\n{len(worst)} flight(s) would have located the original recording.")
+    orig = [r for r in results if r["variant"] == "original"]
+    worst = [r for r in orig if "EXPOSED" in (r["verdict"], r.get("trace_verdict"))]
+    partly = [r for r in orig if r not in worst and {"partly exposed", "possibly exposed"} & {r["verdict"], r.get("trace_verdict")}]
+    print(f"\n{len(worst)} flight(s) would have located the original recording; {len(partly)} more partly or possibly.")
 
 
 if __name__ == "__main__":

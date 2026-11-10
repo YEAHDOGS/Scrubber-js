@@ -3,6 +3,15 @@
 Remove aircraft Doppler signatures from audio and video, so a recording can't be
 geolocated from the planes flying over it.
 
+The attack was shown by **colsto** in
+[*I discovered a sound that leaks your exact location (and it's everywhere)*](https://www.youtube.com/watch?v=UytYrhYLOKI)
+([@colsto](https://www.youtube.com/@colsto)). This repo is a defence against it, plus an independent replication.
+
+> **It works on real phone videos.** On my own iPhone videos and public ADS-B data, a Cessna nobody could hear
+> located an indoor selfie to 61–134 m, and a helicopter behind a live band picked the right aircraft out of 18.
+> It survived 32 of 34 codec and filter chains, and TikTok passes faint tones through untouched.
+> Full write-up, data and a reproducible proof of concept: [`research/`](research/README.md).
+
 ```sh
 uv tool install .                         # or: uv run flyover-scrub ...
 flyover-scrub input.mov -o output.mov     # audio scrubbed, video copied, metadata stripped
@@ -18,6 +27,9 @@ flyover-capture --at 42.36,-83.13 --minutes 15 -o flights.jsonl
 
 # 2. Ask: would the attack have found me? And after scrubbing?
 flyover-audit recording.mov --flights flights.jsonl --scrub
+
+# 3. If you can see a line in the spectrogram, fit it directly (stronger on real recordings):
+flyover-audit recording.mov --flights flights.jsonl --scrub --trace 10,75,65,95   # t_lo,t_hi,f_lo,f_hi
 ```
 
 ```
@@ -29,12 +41,15 @@ flyover-audit recording.mov --flights flights.jsonl --scrub
 The audit reads the start time and position from the file's own tags (iPhone
 `.MOV` has both), or takes `--start` and `--at`. It **requires your true
 location**. It answers "am I exposed?" and isn't meant for locating recordings you
-didn't make. For the same reason, there's no bulk or historical flight download.
+didn't make. For the same reason, the package has no bulk or historical flight download. (The research
+scripts include one that reads adsb.lol's public daily archive with ranged requests, used to find aircraft passes
+in my own clips.)
 
 "Signal × chance" compares the best match against the same search run on the
 time-reversed spectrogram, where aircraft lines rise instead of falling and can
 only match by chance. It reads ~0.5 with no aircraft, ~1–2 after scrubbing and
-20–35 for an inaudible light-aircraft flyover. The verdict threshold is 4. These
+20–35 for an inaudible *synthetic* light-aircraft flyover. The verdict threshold is 4. A real Cessna flyover
+scored only 2–3× while ranking the true spot first, so 2–4× with the true spot in the top 10 reads "possibly exposed". These
 calibration numbers come from a handful of synthetic cases; treat borderline
 results with care.
 
@@ -65,6 +80,10 @@ compression.
 
 `flyover_scrub.attack` is a working reference implementation of the scorer.
 It's here so the defence can be **measured** rather than assumed.
+
+`flyover_scrub.trace` is the trace-and-fit variant colsto uses for faint curves: follow the visible line, solve
+the source pitch in closed form for each candidate spot, and score the RMS residual in cents. On real recordings
+it is the stronger of the two (see [`research/`](research/README.md)).
 
 ## Why "just denoise it" isn't enough
 
@@ -116,10 +135,9 @@ Quality (vs the aircraft-free original, phase-insensitive):
 
 ## Limits (read these)
 
-* **Tested against this scorer, on simulated flyovers in real recordings.** It has not
-  yet been tested against real ADS-B-matched flyovers, a stronger attacker (e.g.
-  sub-bin interpolation, learned detectors) or multiple flights with a locked offset.
-  Treat the results as evidence, not a guarantee.
+* **Tested against both scorers**: on simulated flyovers in real recordings, and on two real
+  ADS-B-matched flyovers (a Cessna and an R44 helicopter; after scrubbing, neither leaves a traceable line). Not yet
+  tested against learned detectors or multiple flights with a locked offset. Treat the results as evidence, not a guarantee.
 * Aircraft energy that **overlaps loud foreground** (speech harmonics crossing the
   line) is kept along with the foreground. In our tests the residual was too small
   to score, but louder flyovers under continuous speech are the most likely leak.
@@ -138,5 +156,11 @@ uv run pytest -q
 uv run python eval/run_eval.py path/to/recording.wav --level-db -30 --seed 1
 uv run python eval/quality.py path/to/recording.wav out_dir raw scrub
 ```
+
+## Credits
+
+* **colsto**, [*I discovered a sound that leaks your exact location (and it's everywhere)*](https://www.youtube.com/watch?v=UytYrhYLOKI):
+  the attack, the emission-time Doppler model and the trace-and-fit method.
+* [adsb.lol](https://adsb.lol): open ADS-B data.
 
 MIT licensed.
