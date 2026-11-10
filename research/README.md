@@ -13,6 +13,8 @@ from the [adsb.lol](https://adsb.lol) community archive.
 
 ## TL;DR
 
+* **Grid hum can date a recording**, which the plane attack needs. One clip here carries it; `flyover-scrub`
+  removes it (section 4).
 * **The attack works on ordinary phone videos.** In a 90 s selfie video recorded in a parked car, a helicopter nobody noticed is
   enough to pick the right aircraft out of 18 and put the recording within ~800 m. In a 90 s indoor selfie, a
   Cessna 1 km away located the phone to **61–134 m**.
@@ -172,7 +174,62 @@ Recorded away from home, matched to their iPhone camera originals and measured a
 * [A 10-minute TikTok](https://www.tiktok.com/@lizthedeveloper/video/7244654039332326698) (2023-06, recorded while travelling): −0.2 dB, 90% of faint tones survive
 * [A crossover episode](https://www.tiktok.com/@lizthedeveloper/video/7426376969249410346) (2024-10, recorded while travelling): edited, −1.5 dB, 49%
 
-## 4. Audit fixes that came out of this
+## 4. The other leak: grid hum (ENF)
+
+Mains hum carries the **electrical network frequency**: the grid's 50 or 60 Hz wanders by a few hundredths of a
+hertz, identically at every outlet on one interconnection. A recording that picks up the hum records that wander.
+This is established forensics, not a new finding:
+
+* **Dating a recording** by matching its hum against a logged reference: Grigoras,
+  [*the ENF Criterion*](https://journal.equinoxpub.com/IJSLL/article/view/9977) (2005), and Cooper,
+  [automated matching](https://aes2.org/publications/elibrary-page/?id=14411) (2008), used by the Metropolitan
+  Police's forensic audio lab, which has logged UK mains frequency since about 2005
+  ([coverage](https://gizmodo.com/police-can-timestamp-any-audio-recording-from-backgroun-5968396)).
+  Short clips are the weak spot: [Huijbregtse & Geradts](https://doi.org/10.1007/978-3-642-03521-0_11) (2009)
+  find matches get ambiguous under about 10 minutes, and [Hua et al.](https://arxiv.org/abs/2011.00176) (2020)
+  find clip length is the main factor in reliability.
+* **From video, with no audio at all.** Indoor lights flicker at twice the grid frequency, and a camera picks it
+  up: Garg et al., [*"Seeing" ENF*](https://www.mast.umd.edu/files/paper_ENF/conf_paper1_ACMMM11.pdf) (2011/2013);
+  Su et al. [use the rolling shutter](https://www.mast.umd.edu/files/paper_ENF/conf_paper11_ICIP14.pdf) (2014).
+* **Location.** Telling *which grid* a clip came from, without any reference, is established
+  ([Hajj-Ahmad, Garg & Wu, 2015](https://manuscript.isc.ac/Inventory/49/41600.htm)). Locating it *within* a grid
+  has only been shown on clean power-line recordings
+  ([Garg et al., 2013](https://www.mast.umd.edu/files/paper_ENF/conf_paper6_ICASSP13.pdf);
+  [2021](https://arxiv.org/abs/2105.00668); [Yao et al., 2017](https://research.usq.edu.au/item/q7w37)).
+  From phone audio it is still an open problem.
+* **Removing it**: notch filtering and forging a fake hum, and detectors for both, in Chuang, Garg & Wu,
+  [*How Secure are Power Network Signature Based Time Stamps?*](https://www.mast.umd.edu/files/paper_ENF/conf_paper2_ACMCCS12.pdf)
+  (CCS 2012). Notching only the fundamental isn't enough: the higher harmonics carry it too
+  ([Nicolalde-Rodríguez et al., 2013](https://www.eurasip.org/Proceedings/Eusipco/Eusipco2013/papers/1569728299.pdf)).
+
+**Why it matters here:** the aircraft attack needs the recording time. Stripping the file's date doesn't protect
+you if the hum can supply it, so ENF and the Doppler attack chain together: hum gives the time, the aircraft
+gives the place.
+
+**What we measured.** `flyover_scrub.enf` reports hum as ENF only when at least two harmonics of 50 or 60 Hz stand
+out, imply the same grid frequency second by second, and sit within 0.2 Hz of nominal, so engines and fans don't
+count. On the clips in this study:
+
+| Clip | Grid hum? | After `flyover-scrub` |
+|---|---|---|
+| Outdoor clip (2023) | **Yes**: 120 Hz +23 dB and 240 Hz +16 dB above their neighbours, both implying a 59.998 Hz grid (wander 0.011 Hz), moving together | none detected (all harmonics back at the noise floor) |
+| Car selfie (helicopter clip) | A 120 Hz tone, but it drifts around 60.1 Hz and its harmonics disagree: an engine or fan, correctly not reported | none detected |
+| Cessna selfie, loud band | No hum above the floor | — |
+
+**flyover-scrub already removes it.** Steady tones are re-synthesised as noise across the whole protected band
+(20–2000 Hz by default), so every harmonic goes, not just 60 Hz. `--keep-hum` keeps them, and that reopens this
+leak. TikTok passes steady faint tones through essentially untouched (section 3), so hum that's recorded is hum
+that's published.
+
+**Not covered:** flicker ENF in the *picture*. flyover-scrub only touches audio, so a video shot under mains
+lighting can still be dated from its frames.
+
+**Can a real clip be dated?** Not by us, yet. No public grid-frequency log for the US Western Interconnection
+covers 2023: the [KIT database](https://power-grid-frequency.org/database/) has a Salt Lake City site for
+2017–2020 only, and the [FNET/GridEye](https://fnetpublic.utk.edu/) history needs permission. The people best
+placed to date recordings (grid operators, police labs) have the data; the public mostly doesn't.
+
+## 5. Audit fixes that came out of this
 
 * **The audit tuned the source pitch at the true location.** That handed the true spot a better score than every other
   candidate, even on scrubbed or time-reversed audio. It now sweeps pitch on a 3 × 3 grid spread over the search box
