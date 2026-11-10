@@ -3,7 +3,7 @@
     uv run --with matplotlib python research/scripts/make_video_figures.py
 
 Writes 1920x1080 PNGs to research/figures/video/. Every number is either computed
-here from repo files (band clip, ADS-B logs, research/data/*) or is a ladder
+here from repo files (car clip, ADS-B logs, research/data/*) or is a ladder
 line-strength figure from the research notes (LADDER_* constants below).
 
 Privacy: locations are only ever shown in metres east/north of the true spot.
@@ -12,6 +12,7 @@ No latitude/longitude is printed or plotted, and there are no maps.
 
 import csv
 import json
+import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -32,7 +33,10 @@ from flyover_scrub.physics import received_doppler
 from flyover_scrub.trace import locate_trace, trace_ridge
 
 ROOT = Path(__file__).resolve().parents[2]
-POC = ROOT / "research" / "band-poc"
+POC = ROOT / "research" / "helicopter-poc"
+# The clip's audio is withheld (private). Point AUDIO_DIR at a folder holding IMG_4367_cut.m4a
+# and IMG_4367_cut_scrubbed.m4a to rebuild the spectrogram figures.
+AUDIO_DIR = Path(os.environ.get("AUDIO_DIR", POC))
 DATA = ROOT / "research" / "data"
 OUT = ROOT / "research" / "figures" / "video"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -94,7 +98,7 @@ def save(fig, name):
 # ---------------------------------------------------------------- compute
 def load_audio(name):
     with tempfile.TemporaryDirectory() as td:
-        x, sr = _read(POC / name, Path(td))
+        x, sr = _read(AUDIO_DIR / name, Path(td))
     return resample_poly(x.mean(axis=1), 160, sr // 100)
 
 
@@ -102,8 +106,8 @@ rec = json.loads((POC / "recording.json").read_text())
 t0 = datetime.fromisoformat(rec["start"]).timestamp()
 tlo, thi, flo, fhi = BAND
 
-spec_o = whitened_spectrogram(load_audio(rec["file"]), 16000, window_s=2.0)
-spec_s = whitened_spectrogram(load_audio(rec["file"].replace(".m4a", "_scrubbed.m4a")), 16000, window_s=2.0)
+spec_o = whitened_spectrogram(load_audio("IMG_4367_cut.m4a"), 16000, window_s=2.0)
+spec_s = whitened_spectrogram(load_audio("IMG_4367_cut_scrubbed.m4a"), 16000, window_s=2.0)
 ridge = trace_ridge(spec_o, f_range=(flo, fhi), t_range=(tlo, thi))
 ridge_s = trace_ridge(spec_s, f_range=(flo, fhi), t_range=(tlo, thi))
 print(f"traced frames: original {len(ridge)}, scrubbed {len(ridge_s)}")
@@ -175,7 +179,7 @@ def spec_panel(ax, spec, fmax=140):
 
 def fig_hidden_line():
     fig = canvas()
-    headline(fig, "The sound you can't hear", "90 s of a live band on an iPhone. Under the music: a helicopter's rotor hum.")
+    headline(fig, "The sound you can't hear", "90 s of an iPhone selfie in a parked car. Under the talking: a helicopter's rotor hum.")
     ax = fig.add_axes([0.08, 0.20, 0.88, 0.55])
     spec_panel(ax, spec_o)
     ax.plot(ridge.t, ridge.f, "o", color=RED, ms=9, mec=BG, mew=1.5, zorder=3)
@@ -300,7 +304,7 @@ def fig_ladder():
     ax.set_xlim(-0.5, len(clips) - 0.5)
     ax.set_ylim(len(chains) - 0.5, -1.4)
     for j, clip in enumerate(clips):
-        ax.text(j, -1.05, {"cessna": "Cessna clip", "band": "band clip"}.get(clip, clip), ha="center",
+        ax.text(j, -1.05, {"cessna": "Cessna clip", "car": "car clip"}.get(clip, clip), ha="center",
                 fontsize=21, fontweight="bold", color=INK2)
         for i, ch in enumerate(chains):
             ok = by[(clip, ch)]["right_aircraft"] == "True"
@@ -313,7 +317,7 @@ def fig_ladder():
     ax.tick_params(axis="y", length=0)
     for s in ax.spines.values():
         s.set_visible(False)
-    footer(fig, "Same blind attack after each re-encode. Misses: band clip at AAC 32k and AMR phone call.")
+    footer(fig, "Same blind attack after each re-encode. Misses: car clip at AAC 32k and AMR phone call.")
     return save(fig, "04_reencoding_doesnt_hide_it.png")
 
 

@@ -8,7 +8,7 @@ The attack was shown by **colsto** in
 ([@colsto](https://www.youtube.com/@colsto)). This repo is a defence against it, plus an independent replication.
 
 > **It works on real phone videos.** On my own iPhone videos and public ADS-B data, a Cessna nobody could hear
-> located an indoor selfie to 61–134 m, and a helicopter behind a live band picked the right aircraft out of 18.
+> located an indoor selfie to 61–134 m, and a helicopter heard from a parked car picked the right aircraft out of 18.
 > It survived 32 of 34 codec and filter chains, and TikTok passes faint tones through untouched.
 > Full write-up, data and a reproducible proof of concept: [`research/`](research/README.md).
 

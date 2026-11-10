@@ -1,0 +1,14 @@
+{
+  "file": "IMG_4367_cut.m4a (withheld)",
+  "description": "90 s of an iPhone selfie video recorded in a parked car (talking, music in the background), Portland OR. The audio is not published: it is a private conversation. Flight logs and ground truth are here so the numbers can be checked against ADS-B.",
+  "start": "2023-08-10T13:15:00-07:00",
+  "truth_lat": 45.5044,
+  "truth_lon": -122.6404,
+  "truth_alt_m": 32.154,
+  "target_aircraft": {
+    "hex": "a54f77",
+    "registration": "N441MR",
+    "type": "R44 helicopter"
+  },
+  "flights": "flights/*.jsonl (adsb.lol globe_history trace_full, every aircraft within 20 km, trimmed to +-20 min)"
+}

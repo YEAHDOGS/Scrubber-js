@@ -1,6 +1,9 @@
-"""Reproduce the band-clip proof of concept: a blind trace-fit attack over every aircraft in the log.
+"""Reproduce the car-clip proof of concept: a blind trace-fit attack over every aircraft in the log.
 
-    uv run --with matplotlib python research/scripts/run_poc.py research/band-poc
+    uv run --with matplotlib python research/scripts/run_poc.py research/helicopter-poc --audio IMG_4367_cut.m4a
+
+The clip's audio is not published (a private conversation); pass it, or your own recording with
+a recording.json and flights/ directory laid out the same way.
 
 For each aircraft in flights/, the traced ridge is fitted at every candidate
 location in a 10 x 10 km box (the box centre is randomly offset from the truth,
@@ -25,24 +28,23 @@ from flyover_scrub.trace import locate_trace, reversal_ratio, trace_ridge
 
 ap = argparse.ArgumentParser()
 ap.add_argument("poc_dir", type=Path)
-ap.add_argument("--scrubbed", action="store_true")
+ap.add_argument("--audio", type=Path, required=True, help="the recording (not in the repo)")
 ap.add_argument("--band", default="33,68,55,84", help="t_lo,t_hi,f_lo,f_hi the attacker reads off the spectrogram")
 ap.add_argument("--plot", type=Path)
 a = ap.parse_args()
 
 rec = json.loads((a.poc_dir / "recording.json").read_text())
-name = rec["file"].replace(".m4a", "_scrubbed.m4a") if a.scrubbed else rec["file"]
 import tempfile
 
 with tempfile.TemporaryDirectory() as td:
-    x, sr = _read(a.poc_dir / name, Path(td))
+    x, sr = _read(a.audio, Path(td))
 audio = resample_poly(x.mean(axis=1), 160, sr // 100)
 t0 = datetime.fromisoformat(rec["start"]).timestamp()
 tlo, thi, flo, fhi = map(float, a.band.split(","))
 
 spec = whitened_spectrogram(audio, 16000, window_s=2.0)
 ridge = trace_ridge(spec, f_range=(flo, fhi), t_range=(tlo, thi))
-print(f"{name}: traced {len(ridge)} frames in {flo:g}-{fhi:g} Hz")
+print(f"{a.audio.name}: traced {len(ridge)} frames in {flo:g}-{fhi:g} Hz")
 if len(ridge) < 20:
     print("no traceable line: nothing to fit")
     raise SystemExit

@@ -110,10 +110,13 @@ def audit_flight(audio, t0, trk, *, half_width, label, log, trace=None):
                   f0_range=(f0 - 3, f0 + 3), offsets=offsets).scores
     null = null[np.isfinite(null)]
     med = float(np.median(null))
-    strength = (s["top_score"] - med) / max(float(null.max()) - med, 1e-9)
+    spread = float(null.max()) - med if null.size else 0.0
+    # A flat null (too few finite candidates, or no coverage) gives no chance baseline;
+    # dividing by it produced absurd "signal" (e.g. 9e8x chance) on a jet in a real clip.
+    strength = (s["top_score"] - med) / spread if null.size >= 50 and spread > 1e-6 else float("nan")
     s.update({"cpa_horizontal_m": float(np.nanmin(r)), "f0_hz": f0, "variant": label,
               "strength_vs_chance": float(strength)})
-    real = strength >= 4.0  # measured: aircraft-free ~0.5, scrubbed ~1-2, inaudible synthetic flyover ~25
+    real = bool(np.isfinite(strength) and strength >= 4.0)  # measured: aircraft-free ~0.5, scrubbed ~1-2, inaudible synthetic flyover ~25
     near = s["top_error_m"] <= 300 or (s["truth_rank"] is not None and s["truth_rank"] <= 10)
     if real and s["top_error_m"] <= 300:
         s["verdict"] = "EXPOSED"
@@ -121,10 +124,12 @@ def audit_flight(audio, t0, trk, *, half_width, label, log, trace=None):
         s["verdict"] = "partly exposed"
     elif real:
         s["verdict"] = "signal, but points elsewhere"
-    elif near and strength >= 2.0:
+    elif near and np.isfinite(strength) and strength >= 2.0:
         # A real Cessna flyover scored ~2-3x chance here yet put the true spot first:
         # real lines are weaker for this scorer than synthetic ones. Err towards warning.
         s["verdict"] = "possibly exposed"
+    elif not np.isfinite(strength):
+        s["verdict"] = "not located (no usable chance baseline)"
     else:
         s["verdict"] = "not located"
     if trace is not None:

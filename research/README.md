@@ -13,7 +13,7 @@ from the [adsb.lol](https://adsb.lol) community archive.
 
 ## TL;DR
 
-* **The attack works on ordinary phone videos.** In a 90 s clip of a live band, a helicopter nobody noticed is
+* **The attack works on ordinary phone videos.** In a 90 s selfie video recorded in a parked car, a helicopter nobody noticed is
   enough to pick the right aircraft out of 18 and put the recording within ~800 m. In a 90 s indoor selfie, a
   Cessna 1 km away located the phone to **61–134 m**.
 * **Re-encoding doesn't save you.** Through 17 codecs and filters (AAC, HE-AAC, Opus down to 8 kbps VoIP, MP3, the
@@ -33,10 +33,10 @@ the result.
 
 | Clip | What's in it | Hidden aircraft | Aircraft tested | Picked | Error | After flyover-scrub |
 |---|---|---|---|---|---|---|
-| Band (`band-poc/`) | 90 s of a live band, outdoors | R44 helicopter N441MR, closest 0.3 km | 18 with coverage | **right one** (fit 4.9 cents; next best 19.6) | 787 m | no traceable line |
+| Car selfie (`helicopter-poc/`) | 90 s, talking in a parked car | R44 helicopter N441MR, closest 0.3 km | 18 with coverage | **right one** (fit 4.9 cents; next best 19.6) | 787 m | no traceable line |
 | Cessna selfie | 90 s indoor talking, nothing audible | Cessna 172, closest ~1 km | 12 | **right one** | 61–134 m (true spot rank 1–9 of ~4,800) | no traceable line; audit 1.9 km, rank 471 |
 
-The band clip's error is mostly along the helicopter's track. A clock error and an along-track shift produce
+The car clip's error is mostly along the helicopter's track. A clock error and an along-track shift produce
 almost the same Doppler curve, and the fit chose a −6.75 s clock offset. With a second aircraft or a known clock it
 would tighten.
 
@@ -46,12 +46,20 @@ give the address to anyone who reran this. Only its numbers are here.
 ![The sound you can't hear](figures/video/01_the_sound_you_cant_hear.png)
 ![flyover-scrub: the line is gone](figures/video/06_before_after_scrub.png)
 
-Reproduce the band clip (audio, flight logs and ground truth are in `band-poc/`):
+**Neither clip's audio is published**: both are private conversations. `helicopter-poc/` has the flight logs
+and ground truth for the car clip, and `run_poc.py` reproduces the result for anyone with the audio (or on your own recording):
 
 ```sh
-uv run --with matplotlib python research/scripts/run_poc.py research/band-poc --plot band.png
-uv run python research/scripts/run_poc.py research/band-poc --scrubbed
+uv run --with matplotlib python research/scripts/run_poc.py research/helicopter-poc --audio IMG_4367_cut.m4a --plot fit.png
+uv run python research/scripts/run_poc.py research/helicopter-poc --audio IMG_4367_cut_scrubbed.m4a
 ```
+
+### A counterexample: a loud band
+
+A 2-minute video of a band playing (2024, Portland) had a Cessna 172 pass **200 m** away mid-song. No line is
+visible under the music, and the audit ranks the true spot 1,545th of 1,593, no better than chance. Loud, broadband,
+constantly changing music is the one thing in this study that hid a close light aircraft. It's not a defence you can
+count on: the same audit found lines under talking, and a quieter song or a gap between songs would expose it.
 
 ### Why trace-fit and not the brightness scorer
 
@@ -64,7 +72,7 @@ well on synthetic flyovers. On these real clips it was weak once its pitch was n
 2. For each candidate spot, the flight track gives the Doppler factor g(t). The source pitch is solved in closed form
    (log f = log f0 + log g), and the score is the RMS residual in cents.
 3. Lowest residual wins. As a chance check, the reversed line is fitted too: a real flyover only ever falls in pitch.
-   On the band clip the reversed fit is 10× worse; for an unrelated aircraft it's 0.4×.
+   On the car clip the reversed fit is 10× worse; for an unrelated aircraft it's 0.4×.
 
 ## 2. Codec and processing ladder
 
@@ -73,7 +81,7 @@ well on synthetic flyovers. On these real clips it was weak once its pitch was n
 Each clip was encoded and decoded through each chain, then the blind attack was rerun
 ([`data/codec_ladder_attack.csv`](data/codec_ladder_attack.csv), [`scripts/ladder.sh`](scripts/ladder.sh)).
 
-| Chain | Cessna clip | Band clip |
+| Chain | Cessna clip | Car (helicopter) clip |
 |---|---|---|
 | Reference (lossless) | right aircraft, 134 m | right aircraft, 787 m |
 | AAC 128k (Apple / ffmpeg), 64k | right, 61–417 m | right, 787 m |
@@ -173,15 +181,15 @@ Recorded away from home, matched to their iPhone camera originals and measured a
   while the true spot was ranked first. There's now a "possibly exposed" tier (true spot top 10 or top guess
   within 300 m, signal ≥ 2× chance).
 * **`flyover-audit --trace T_LO,T_HI,F_LO,F_HI`** runs the trace-fit attack on a line you can see in the spectrogram,
-  with the reversal check. On the band clip it reports "partly exposed" (806 m) where the brightness scorer saw nothing.
+  with the reversal check. On the car clip it reports "partly exposed" (806 m) where the brightness scorer saw nothing.
 
 ## Files
 
 ```
-band-poc/                 the band clip (original and scrubbed audio), ADS-B for every aircraft nearby, ground truth
+helicopter-poc/           ADS-B for every aircraft near the car clip, and its ground truth (audio withheld)
 data/                     ladder, line-strength and platform measurements (CSV and JSON)
 figures/                  plots; figures/video/ = 1920x1080 video graphics (scripts/make_video_figures.py)
-scripts/run_poc.py        reproduce the band proof of concept from the repo
+scripts/run_poc.py        reproduce the car-clip proof of concept (needs the audio)
 scripts/ladder.sh         codec/processing ladder (+ trace_attack_research.py, the script it calls)
 scripts/linesnr.py        line strength through each chain
 scripts/probes.py         TikTok app save vs TikTok vs Instagram tonal-probe survival
@@ -191,7 +199,7 @@ scripts/screen_heatmaps.py  finds which of your own clips had a close aircraft p
 ```
 
 The research scripts were run in a scratch directory and expect its layout (`aud/<clip>.wav` + `.meta`, flight-log
-directories). `run_poc.py` runs as-is from the repo.
+directories). `run_poc.py` runs on any recording plus its flight logs.
 
 ## Credits
 
