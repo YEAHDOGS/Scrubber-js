@@ -161,9 +161,16 @@ fn scrub_preserves_foreground_and_level() {
     assert!(report.ridges.len() <= 3, "syllables must not be chained into long ridges");
     let pick = |v: &[f64]| -> Vec<f64> { v.iter().zip(&env).filter(|(_, &on)| on).map(|(v, _)| *v).collect() };
     let diff: Vec<f64> = y.iter().zip(&x).map(|(a, b)| *a as f64 - b).collect();
-    assert!(std_dev(&pick(&diff)) / std_dev(&pick(&voice)) < 0.35);
+    // The quiet edges of the voice (under 12 dB above the floor) are rebuilt
+    // from noise at their own level, so the waveform differs there by design.
+    // Upstream holds this to 0.35 with a fill that comes out 6 dB low; at the
+    // corrected level the same bins cost a little more.
+    let err = std_dev(&pick(&diff)) / std_dev(&pick(&voice));
     let y64: Vec<f64> = y.iter().map(|&v| v as f64).collect();
-    assert!((20.0 * (std_dev(&y64) / std_dev(&x)).log10()).abs() < 1.0);
+    let level_db = 20.0 * (std_dev(&y64) / std_dev(&x)).log10();
+    println!("foreground error {err:.3}, level change {level_db:.2} dB");
+    assert!(err < 0.4);
+    assert!(level_db.abs() < 1.0);
 }
 
 #[test]
@@ -236,4 +243,24 @@ fn enf_survives_resampling_from_48k() {
     let found = detect_enf(&to_f32(&humming), SR_48K, HUM_MIN_DB);
     assert!(found.present && found.nominal_hz == 60);
     assert!((found.grid_hz - 60.0).abs() < 0.01);
+}
+
+/// Power of `x` between two frequencies, by FFT.
+fn band_power(x: &[f32], sr: f64, lo: f64, hi: f64) -> f64 {
+    let n = x.len();
+    let mut spec: Vec<Complex32> = x.iter().map(|&v| Complex32::new(v, 0.0)).collect();
+    FftPlanner::<f32>::new().plan_fft_forward(n).process(&mut spec);
+    let bin = |hz: f64| (hz / sr * n as f64) as usize;
+    spec[bin(lo)..bin(hi)].iter().map(|c| (c.re * c.re + c.im * c.im) as f64).sum()
+}
+
+#[test]
+fn rebuilt_background_keeps_its_level() {
+    let n = 1 << 18;
+    let x = noise(n, &mut Rng::new(12));
+    let (y, report) = run_scrub(&x, SR, 0);
+    assert!(report.replaced_fraction > 0.99, "plain noise is all background");
+    let change_db = 10.0 * (band_power(&y, SR, 200.0, 1800.0) / band_power(&to_f32(&x), SR, 200.0, 1800.0)).log10();
+    println!("level change in the rebuilt band: {change_db:.2} dB");
+    assert!(change_db.abs() < 1.0, "rebuilt band is off by {change_db:.2} dB");
 }

@@ -66,6 +66,25 @@ impl Stft {
         }
     }
 
+    /// How much louder independent noise must be written into the frames to come
+    /// out of the overlap-add at the level it was written at.
+    ///
+    /// Frames of a real signal overlap coherently. Frames of fresh noise do not:
+    /// each sample is a weighted mean of several unrelated values, which lowers
+    /// its power. For a Hann window at a quarter-window hop the loss is 6 dB,
+    /// so this returns 2.
+    pub fn incoherent_makeup(&self) -> f32 {
+        let Layout { nper, hop, .. } = self.layout;
+        let squared = |i: usize| (self.window[i] as f64).powi(2);
+        let mean_square = (0..nper).map(squared).sum::<f64>() / nper as f64;
+        // 1 / (summed squared window) at each position within one hop.
+        let mean_inverse_overlap = (0..hop)
+            .map(|i| 1.0 / (i..nper).step_by(hop).map(squared).sum::<f64>().max(MIN_OVERLAP_NORM as f64))
+            .sum::<f64>()
+            / hop as f64;
+        (1.0 / (mean_square * mean_inverse_overlap)).sqrt() as f32
+    }
+
     /// Transforms frame `j` of `x` and hands the positive-frequency bins to `sink`.
     pub fn frame(&mut self, x: &[f32], j: usize, mut sink: impl FnMut(&[Complex32])) {
         let start = (j * self.layout.hop) as isize - self.layout.lead as isize;

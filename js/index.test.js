@@ -80,6 +80,10 @@ test("a faint gliding tone is gone after scrubbing, and the input is untouched",
   assert.ok(toneContent(channels[0]) < 0.006, `tone left after scrubbing: ${toneContent(channels[0])}`);
   assert.ok(report.replacedFraction > 0.5);
   assert.ok(Number.isFinite(report.peak) && report.peak > 0);
+  // Plain noise is rebuilt entirely, and must come back at the level it went in.
+  const rms = (x) => Math.sqrt(x.reduce((s, v) => s + v * v, 0) / x.length);
+  const changeDb = 20 * Math.log10(rms(channels[0]) / rms(input));
+  assert.ok(Math.abs(changeDb) < 0.5, `level changed by ${changeDb.toFixed(2)} dB`);
 });
 
 test("check reports an audible falling tone and changes nothing", () => {

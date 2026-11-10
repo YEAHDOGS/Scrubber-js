@@ -445,6 +445,13 @@ pub fn scrub(x: &mut [f32], sr: f64, cfg: &ScrubConfig, check_only: bool, progre
         .map(|(&a, &b)| (a / b.max(MIN_REPLACED_POWER)).sqrt().min(1.0) as f32)
         .collect();
 
+    // Upstream stops here and inverts. Its noise has the right power per bin,
+    // but unrelated noise in overlapping frames partly cancels when the frames
+    // are added back, so the rebuilt background comes out 6 dB low. The makeup
+    // gain is a constant of the window and hop: it restores the level and
+    // carries nothing about the recording.
+    let makeup = stft.incoherent_makeup();
+
     // Turn the stored spectrum into (replacement - original), zero where kept.
     for i in 0..stored * frames {
         let r = i / frames;
@@ -454,8 +461,8 @@ pub fn scrub(x: &mut [f32], sr: f64, cfg: &ScrubConfig, check_only: bool, progre
             im[i] = 0.0;
             continue;
         }
-        re[i] = n_re[o] * cap[r - band0] - re[i];
-        im[i] = n_im[o] * cap[r - band0] - im[i];
+        re[i] = n_re[o] * cap[r - band0] * makeup - re[i];
+        im[i] = n_im[o] * cap[r - band0] * makeup - im[i];
     }
     drop((n_re, n_im, mag, weight));
 

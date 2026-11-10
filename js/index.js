@@ -301,7 +301,7 @@ export async function createScrubber(source = DEFAULT_WASM_URL) {
      * @param {Partial<typeof DEFAULT_CONFIG>} [options.config]
      * @param {number} [options.seed] Fixed noise seed, for repeatable output. Leave unset in real use.
      * @param {number} [options.segmentSeconds] Piece length for long recordings (default 180).
-     *   `Infinity` scrubs in one piece, exactly as upstream does, at the cost of memory.
+     *   `Infinity` scrubs in one piece, as upstream does, at the cost of memory.
      * @param {number} [options.contextSeconds] Audio each piece sees either side (default 10).
      * @param {(fraction: number) => void} [options.onProgress]
      * @returns {{channels: Float32Array[], report: ScrubReport}}

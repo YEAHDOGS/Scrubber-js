@@ -9,11 +9,12 @@ lizTheDeveloper, which is a defence against the attack shown by
 [colsto](https://www.youtube.com/watch?v=UytYrhYLOKI). The method, the research
 and the Python package are theirs and are kept here unchanged; the upstream
 README follows [below](#flyover-scrub). This repo adds the same scrubber as a
-271 KB WebAssembly module with a small JavaScript API, so it can run on a
+272 KB WebAssembly module with a small JavaScript API, so it can run on a
 person's own device with nothing uploaded.
 
 ```js
 import { createScrubber } from "scrubber-js";
+// npm install https://github.com/YEAHDOGS/Scrubber-js/releases/download/v0.1.1/scrubber-js-0.1.1.tgz
 
 const scrubber = await createScrubber();
 
@@ -56,7 +57,7 @@ location attack, scrub, run it again. `npm run test:core` reproduces this:
 | Recording (80 s, propeller flyover 28 dB below the noise) | Where the true spot ranks, of 1,681 candidates in a 10 × 10 km search |
 |---|---|
 | Raw | 1st in 4 of 4 runs |
-| After Scrubber-js | 631st, 845th, 687th and 54th: no better than chance |
+| After Scrubber-js | 615th, 823rd, 647th and 57th: no better than chance |
 
 This check is weaker than upstream's in one way and stronger in another: the
 background is synthetic noise where upstream used real phone recordings, and the
@@ -67,11 +68,18 @@ trace-and-fit attack, or learned detectors. Upstream's
 
 ## Where the port differs
 
+- **The rebuilt background keeps its level.** Upstream writes replacement noise
+  at the right power per bin, but unrelated noise in overlapping frames partly
+  cancels when the frames are added back, so a fully rebuilt band comes out
+  about 6 dB quiet. The port applies a makeup gain that depends only on the
+  window and hop (2× for the defaults). `npm run test:core` measures the
+  result: within 0.2 dB on plain noise. This is from the port's own tests and
+  the maths; the Python was not run to confirm it behaves the same.
 - **Long recordings are scrubbed in segments** (180 s by default, each seeing
   10 s of audio either side, blended over 0.25 s at the joins) so memory stays
   bounded. Upstream's level corrections use one number per frequency for the
-  whole file; here it is one per segment. Pass `segmentSeconds: Infinity` for
-  upstream's exact behaviour.
+  whole file; here it is one per segment. Pass `segmentSeconds: Infinity` to
+  scrub in one piece as upstream does.
 - **Only the protected band is held in memory.** The output is the input plus
   the inverse transform of the replaced bins, which is the same signal without
   a full spectrogram.
