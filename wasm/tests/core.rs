@@ -28,7 +28,11 @@ fn run_scrub(x: &[f64], sr: f64, seed: u64) -> (Vec<f32>, ScrubReport) {
     (y, report)
 }
 
-/// A turning propeller flyover, 28 dB below white noise, heard from the origin.
+/// Flyover level against the background, dB: inaudible, and plainly audible.
+const FAINT_DB: f64 = -28.0;
+const LOUD_DB: f64 = -10.0;
+
+/// A turning propeller flyover in white noise, heard from the origin.
 struct Scene {
     track: Track,
     background: Vec<f64>,
@@ -36,7 +40,7 @@ struct Scene {
     t0: f64,
 }
 
-fn scene(seed: u64, seconds: usize) -> Scene {
+fn scene(seed: u64, seconds: usize, level_db: f64) -> Scene {
     let mut rng = Rng::new(seed);
     let turn = Turn { rate_deg_s: -1.0, start: 100.0, duration: 25.0 };
     let track = make_track(0.0, 260.0, (-9000.0, -400.0), 700.0, 70.0, 5.0, turn);
@@ -45,7 +49,7 @@ fn scene(seed: u64, seconds: usize) -> Scene {
     let mut plane = synthesize_flyover(&track, ORIGIN, t0, n, SR, 90.0, 0.15, &mut rng);
     let background = noise(n, &mut rng);
     let audible: Vec<f64> = plane.iter().copied().filter(|&v| v != 0.0).collect();
-    let level = 10f64.powf(-28.0 / 20.0) * std_dev(&background) / std_dev(&audible);
+    let level = 10f64.powf(level_db / 20.0) * std_dev(&background) / std_dev(&audible);
     plane.iter_mut().for_each(|v| *v *= level);
     let mix = background.iter().zip(&plane).map(|(b, p)| b + p).collect();
     Scene { track, background, mix, t0 }
@@ -84,7 +88,7 @@ fn attack_prefers_truth_and_scrub_removes_it() {
     let search = Search { f0_range: (87.0, 93.0), offsets: (-2.0, 2.0) };
     let mut residual = 0.0;
     for seed in SEEDS {
-        let s = scene(seed, 80);
+        let s = scene(seed, 80, FAINT_DB);
         let score = |audio: &[f32]| score_candidates(&whitened_spectrogram(audio, SR, 1.0), &s.track, s.t0, &candidates, &search);
         let raw = score(&to_f32(&s.mix));
         let best = raw.iter().cloned().fold(f64::MIN, f64::max);
@@ -106,8 +110,8 @@ fn attack_prefers_truth_and_scrub_removes_it() {
 }
 
 /// The upstream evaluation in miniature: a 10 x 10 km search for the recording.
-#[test]
-fn grid_search_finds_raw_recording_and_loses_scrubbed_one() {
+/// Runs the search on four recordings and returns where the true spot ranks after scrubbing.
+fn grid_search(level_db: f64) -> (Vec<usize>, usize) {
     const SEEDS: [u64; 4] = [40, 41, 42, 43];
     const HALF_WIDTH: f64 = 5000.0;
     const STEP: f64 = 250.0;
@@ -116,7 +120,7 @@ fn grid_search_finds_raw_recording_and_loses_scrubbed_one() {
     let search = Search { f0_range: (86.0, 94.0), offsets: (-2.0, 2.0) };
     let mut scrubbed_ranks = Vec::new();
     for seed in SEEDS {
-        let s = scene(seed, 80);
+        let s = scene(seed, 80, level_db);
         // Rank (1 = best) of the best candidate within NEAR_M of the true spot.
         let truth_rank = |audio: &[f32]| -> usize {
             let scores = score_candidates(&whitened_spectrogram(audio, SR, 1.0), &s.track, s.t0, &candidates, &search);
@@ -130,14 +134,21 @@ fn grid_search_finds_raw_recording_and_loses_scrubbed_one() {
         };
         let raw = truth_rank(&to_f32(&s.mix));
         let scrubbed = truth_rank(&run_scrub(&s.mix, SR, seed).0);
-        println!("seed {seed}: true spot ranks {raw} raw and {scrubbed} scrubbed, of {}", candidates.len());
+        println!("{level_db} dB, seed {seed}: true spot ranks {raw} raw and {scrubbed} scrubbed, of {}", candidates.len());
         assert_eq!(raw, 1, "seed {seed}: the attack should find the raw recording");
         scrubbed_ranks.push(scrubbed);
     }
-    // Chance puts the true spot anywhere in the list; the middle run must be deep in the crowd.
     scrubbed_ranks.sort_unstable();
-    let median = scrubbed_ranks[scrubbed_ranks.len() / 2];
-    assert!(median > candidates.len() / 10, "scrubbed recordings still rank near the top: {scrubbed_ranks:?}");
+    (scrubbed_ranks, candidates.len())
+}
+
+#[test]
+fn grid_search_finds_raw_recording_and_loses_scrubbed_one() {
+    for level_db in [FAINT_DB, LOUD_DB] {
+        let (ranks, candidates) = grid_search(level_db);
+        // Chance puts the true spot anywhere in the list; the middle run must be deep in the crowd.
+        assert!(ranks[ranks.len() / 2] > candidates / 10, "{level_db} dB: scrubbed recordings still rank near the top: {ranks:?}");
+    }
 }
 
 #[test]
@@ -193,7 +204,7 @@ fn nothing_above_the_band_changes() {
 
 #[test]
 fn check_only_leaves_audio_alone() {
-    let x = to_f32(&scene(3, 20).mix);
+    let x = to_f32(&scene(3, 20, FAINT_DB).mix);
     let mut y = x.clone();
     let report = scrub(&mut y, SR, &ScrubConfig::default(), true, &mut |_| {});
     assert_eq!(x, y);

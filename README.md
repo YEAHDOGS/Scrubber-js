@@ -54,10 +54,17 @@ returns samples. It makes no network requests beyond loading its own module.
 The upstream tests are ported and pass, including the one that matters: run the
 location attack, scrub, run it again. `npm run test:core` reproduces this:
 
-| Recording (80 s, propeller flyover 28 dB below the noise) | Where the true spot ranks, of 1,681 candidates in a 10 × 10 km search |
+| Recording (80 s of noise with a propeller flyover) | Where the true spot ranks, of 1,681 candidates in a 10 × 10 km search |
 |---|---|
-| Raw | 1st in 4 of 4 runs |
-| After Scrubber-js | 615th, 823rd, 647th and 57th: no better than chance |
+| Raw, flyover 28 dB below the noise (inaudible) | 1st in 4 of 4 runs |
+| Raw, flyover 10 dB below the noise | 1st in 4 of 4 runs |
+| After Scrubber-js, faint flyover | 615th, 823rd, 647th and 57th |
+| After Scrubber-js, louder flyover | 428th, 681st, 491st and 54th |
+
+Averaged over 16 recordings at each of four loudness levels (up to a flyover as
+loud as the background), the attack's score at the true spot after scrubbing is
+within 0.003 of its score on a scrubbed recording with no aircraft in it. The
+raw recordings score 0.5 to 4.7 higher.
 
 This check is weaker than upstream's in one way and stronger in another: the
 background is synthetic noise where upstream used real phone recordings, and the
