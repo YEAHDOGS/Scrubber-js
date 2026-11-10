@@ -12,6 +12,18 @@ The attack was shown by **colsto** in
 > It survived 32 of 34 codec and filter chains, and TikTok passes faint tones through untouched.
 > Full write-up, data and a reproducible proof of concept: [`research/`](research/README.md).
 
+![One sound. 787 m from the true spot.](research/figures/video/03_where_it_was_recorded.png)
+
+<details><summary>All figures</summary>
+
+| | |
+|---|---|
+| ![The sound you can't hear](research/figures/video/01_the_sound_you_cant_hear.png) | ![18 aircraft nearby. One fits.](research/figures/video/02_eighteen_aircraft_one_fits.png) |
+| ![Re-encoding doesn't hide it](research/figures/video/04_reencoding_doesnt_hide_it.png) | ![Posting it doesn't wash it out](research/figures/video/05_platforms_keep_it.png) |
+| ![flyover-scrub: the line is gone](research/figures/video/06_before_after_scrub.png) | ![Ordinary processing barely dents it](research/figures/video/07_what_removes_it.png) |
+
+</details>
+
 ```sh
 uv tool install .                         # or: uv run flyover-scrub ...
 flyover-scrub input.mov -o output.mov     # audio scrubbed, video copied, metadata stripped

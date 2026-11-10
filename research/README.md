@@ -9,6 +9,8 @@ to the evidence.
 All recordings are mine (lizTheDeveloper), made on an iPhone between 2023 and 2024. Flight data is public ADS-B
 from the [adsb.lol](https://adsb.lol) community archive.
 
+![18 aircraft nearby. One fits.](figures/video/02_eighteen_aircraft_one_fits.png)
+
 ## TL;DR
 
 * **The attack works on ordinary phone videos.** In a 90 s clip of a live band, a helicopter nobody noticed is
@@ -41,6 +43,9 @@ would tighten.
 **The Cessna clip is not published.** It was recorded at my former home, so its audio, date and flight logs would
 give the address to anyone who reran this. Only its numbers are here.
 
+![The sound you can't hear](figures/video/01_the_sound_you_cant_hear.png)
+![flyover-scrub: the line is gone](figures/video/06_before_after_scrub.png)
+
 Reproduce the band clip (audio, flight logs and ground truth are in `band-poc/`):
 
 ```sh
@@ -62,6 +67,8 @@ well on synthetic flyovers. On these real clips it was weak once its pitch was n
    On the band clip the reversed fit is 10× worse; for an unrelated aircraft it's 0.4×.
 
 ## 2. Codec and processing ladder
+
+![Re-encoding doesn't hide it](figures/video/04_reencoding_doesnt_hide_it.png)
 
 Each clip was encoded and decoded through each chain, then the blind attack was rerun
 ([`data/codec_ladder_attack.csv`](data/codec_ladder_attack.csv), [`scripts/ladder.sh`](scripts/ladder.sh)).
@@ -93,6 +100,8 @@ location accuracy (400 m instead of 61 m). It doesn't cost aircraft identificati
 | ffmpeg `anlmdn` denoiser, default / strong | −4.0 / −7.6 dB, line still 7 dB above its neighbours |
 | `flyover-scrub` | no traceable line |
 
+![Ordinary processing barely dents it](figures/video/07_what_removes_it.png)
+
 Classic denoisers model *stationary* noise. A slowly gliding tone looks enough like signal that they leave it alone.
 
 ## 3. What platforms do to it
@@ -109,6 +118,8 @@ Gotcha for anyone measuring TikTok: yt-dlp's "audio" format is the post's reusab
 track. Use `-f "b[vcodec^=h264]"` and extract.
 
 ### What survives
+
+![Posting it doesn't wash it out](figures/video/05_platforms_keep_it.png)
 
 The probes are the faint steady tones already in the recordings (fans, appliances, room hum): the same kind of
 signal as a distant aircraft. Each was found in the copy before upload, then re-measured in the platform's copy of the same video
