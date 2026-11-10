@@ -1,0 +1,27 @@
+[package]
+name = "scrubber-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Remove aircraft Doppler signatures from audio. WebAssembly port of flyover-scrub."
+repository = "https://github.com/YEAHDOGS/Scrubber-js"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Arbitrary-length FFT (the scrub window is 0.25 s, which is not a power of two
+# at any common sample rate). CPU-specific code paths are off: one portable build.
+rustfft = { version = "6.4", default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# The tests run the attack scorer over thousands of FFT frames: optimise them.
+[profile.test]
+opt-level = 3

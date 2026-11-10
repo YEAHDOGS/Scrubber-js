@@ -1,0 +1,29 @@
+{
+  "name": "scrubber-js",
+  "version": "0.1.0",
+  "description": "Remove aircraft Doppler signatures and grid hum from audio so recordings can't be geolocated. WebAssembly port of flyover-scrub.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YEAHDOGS/Scrubber-js.git"
+  },
+  "main": "./js/index.js",
+  "exports": {
+    ".": "./js/index.js",
+    "./scrubber.wasm": "./dist/scrubber.wasm"
+  },
+  "files": [
+    "js/index.js",
+    "dist/scrubber.wasm"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test js/",
+    "test:core": "cargo test --manifest-path wasm/Cargo.toml"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
