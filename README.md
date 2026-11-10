@@ -1,3 +1,109 @@
+# Scrubber-js
+
+Remove aircraft Doppler signatures and grid hum from audio, in the browser, so
+a recording can't be located from the planes flying over it.
+
+This is a WebAssembly port of
+[flyover-scrub](https://github.com/lizTheDeveloper/flyover-scrub) by
+lizTheDeveloper, which is a defence against the attack shown by
+[colsto](https://www.youtube.com/watch?v=UytYrhYLOKI). The method, the research
+and the Python package are theirs and are kept here unchanged; the upstream
+README follows [below](#flyover-scrub). This repo adds the same scrubber as a
+272 KB WebAssembly module with a small JavaScript API, so it can run on a
+person's own device with nothing uploaded.
+
+```js
+import { createScrubber } from "scrubber-js";
+// npm install https://github.com/YEAHDOGS/Scrubber-js/releases/download/v0.1.1/scrubber-js-0.1.1.tgz
+
+const scrubber = await createScrubber();
+
+// One Float32Array per channel, e.g. from an AudioBuffer's getChannelData().
+const { channels, report } = scrubber.scrub([left, right], sampleRate);
+
+report.ridges;            // long narrowband tones that were found and removed
+report.replacedFraction;  // share of the protected band that was re-synthesised
+
+scrubber.check([left, right], sampleRate);     // report only, nothing changed
+scrubber.detectHum([left, right], sampleRate); // mains hum that can date a recording
+```
+
+It runs synchronously, at roughly 200 times real time on a laptop (a minute of
+48 kHz audio in about 0.4 s). In a browser, call it from a Worker. With a
+bundler, hand `createScrubber` the URL of the module:
+
+```js
+import wasmUrl from "scrubber-js/scrubber.wasm?url"; // Vite
+const scrubber = await createScrubber(wasmUrl);
+```
+
+## What is ported
+
+| Upstream | Here |
+|---|---|
+| `scrub.py`: the scrubber | `wasm/src/scrub.rs`, as `scrub()` and `check()` |
+| `enf.py`: grid hum detection | `wasm/src/enf.rs`, as `detectHum()` |
+| `physics.py`, `attack.py`: the flyover model and the reference attack | `wasm/tests/`, as test tools only. They are not in the module. |
+| `trace.py`, `audit.py`, `adsb.py`, the CLI | Not ported. Use upstream for auditing a recording against real flights. |
+
+Reading and writing files is left to the caller: the library takes samples and
+returns samples. It makes no network requests beyond loading its own module.
+
+## Does the port work?
+
+The upstream tests are ported and pass, including the one that matters: run the
+location attack, scrub, run it again. `npm run test:core` reproduces this:
+
+| Recording (80 s of noise with a propeller flyover) | Where the true spot ranks, of 1,681 candidates in a 10 × 10 km search |
+|---|---|
+| Raw, flyover 28 dB below the noise (inaudible) | 1st in 4 of 4 runs |
+| Raw, flyover 10 dB below the noise | 1st in 4 of 4 runs |
+| After Scrubber-js, faint flyover | 615th, 823rd, 647th and 57th |
+| After Scrubber-js, louder flyover | 428th, 681st, 491st and 54th |
+
+Averaged over 16 recordings at each of four loudness levels (up to a flyover as
+loud as the background), the attack's score at the true spot after scrubbing is
+within 0.003 of its score on a scrubbed recording with no aircraft in it. The
+raw recordings score 0.5 to 4.7 higher.
+
+This check is weaker than upstream's in one way and stronger in another: the
+background is synthetic noise where upstream used real phone recordings, and the
+attacker is handed the exact flight track where upstream's got a degraded one.
+The scrubbed recording has not been tested against real ADS-B data, the
+trace-and-fit attack, or learned detectors. Upstream's
+[limits](#limits-read-these) all apply. Treat it as evidence, not a guarantee.
+
+## Where the port differs
+
+- **The rebuilt background keeps its level.** Upstream writes replacement noise
+  at the right power per bin, but unrelated noise in overlapping frames partly
+  cancels when the frames are added back, so a fully rebuilt band comes out
+  about 6 dB quiet. The port applies a makeup gain that depends only on the
+  window and hop (2× for the defaults). `npm run test:core` measures the
+  result: within 0.2 dB on plain noise. This is from the port's own tests and
+  the maths; the Python was not run to confirm it behaves the same.
+- **Long recordings are scrubbed in segments** (180 s by default, each seeing
+  10 s of audio either side, blended over 0.25 s at the joins) so memory stays
+  bounded. Upstream's level corrections use one number per frequency for the
+  whole file; here it is one per segment. Pass `segmentSeconds: Infinity` to
+  scrub in one piece as upstream does.
+- **Only the protected band is held in memory.** The output is the input plus
+  the inverse transform of the replaced bins, which is the same signal without
+  a full spectrogram.
+- **Single precision** (32-bit floats) where upstream uses 64-bit.
+- **Each channel gets its own noise**, including when a seed is given.
+- **Different random numbers**, so output is never sample-identical to
+  upstream's.
+- **Ridges are reported** with their time, pitch range and direction, so a page
+  can show what was found.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: `npm test` for the JavaScript,
+`npm run test:core` for the Rust, `npm run build` to rebuild the module.
+
+---
+
 # flyover-scrub
 
 Remove aircraft Doppler signatures from audio and video, so a recording can't be

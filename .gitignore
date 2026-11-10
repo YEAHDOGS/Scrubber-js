@@ -6,3 +6,8 @@ __pycache__/
 *.mov
 *.MOV
 *.mp4
+
+# Scrubber-js build output
+wasm/target/
+node_modules/
+*.tgz
