@@ -1,0 +1,6 @@
+source,codec,sample_rate_hz,bitrate_kbps,how_measured
+TikTok (audio inside the served video),HE-AACv2,44100,64,"yt-dlp -f 'b[vcodec^=h264]' then ffprobe; 476 posts"
+TikTok (yt-dlp 'audio' format),AAC-LC,44100,128,"this is the post's reusable *sound*, not the video's audio track; don't measure with it"
+Instagram Reels,HE-AAC,48000,48-74,"single reel URLs via yt-dlp; 12 most recent reels"
+TikTok app local save (before upload),AAC-LC,44100,~125,"hash-named .mov the TikTok app writes to Photos; 10 videos"
+iPhone camera original,AAC-LC,44100 or 48000,~256 (stereo),ffprobe

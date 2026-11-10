@@ -1,0 +1,13 @@
+{"meta": {"source": "adsb.lol globe_history trace_full"}}
+{"now": 1691698610.95, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.548676, "lon": -122.400423, "alt_baro": 50, "alt_geom": 50, "gs": 49.0, "track": 270.0, "seen_pos": 0}]}
+{"now": 1691698618.35, "ac": [{"hex": "aa8c0e", "flight": "N779SH  ", "t": "R22", "category": "A7", "lat": 45.548665, "lon": -122.402802, "alt_baro": 125, "alt_geom": 150, "gs": 48.0, "track": 270.0, "seen_pos": 0}]}
+{"now": 1691698623.05, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.548618, "lon": -122.404312, "alt_baro": 200, "alt_geom": 225, "gs": 48.0, "track": 268.8, "seen_pos": 0}]}
+{"now": 1691698631.15, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.548572, "lon": -122.406853, "alt_baro": 300, "alt_geom": 325, "gs": 48.0, "track": 268.8, "seen_pos": 0}]}
+{"now": 1691698640.46, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.548525, "lon": -122.409737, "alt_baro": 400, "alt_geom": 450, "gs": 48.0, "track": 268.8, "seen_pos": 0}]}
+{"now": 1691698649.75, "ac": [{"hex": "aa8c0e", "flight": "N779SH  ", "t": "R22", "category": "A7", "lat": 45.548447, "lon": -122.412883, "alt_baro": 400, "alt_geom": 425, "gs": 50.0, "track": 268.9, "seen_pos": 0}]}
+{"now": 1691698653.62, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.548432, "lon": -122.4142, "alt_baro": 400, "alt_geom": 425, "gs": 51.1, "track": 266.6, "seen_pos": 0}]}
+{"now": 1691698659.09, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.548309, "lon": -122.415965, "alt_baro": 425, "alt_geom": 450, "gs": 53.2, "track": 264.6, "seen_pos": 0}]}
+{"now": 1691698662.09, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.548106, "lon": -122.417015, "alt_baro": 425, "alt_geom": 450, "gs": 54.5, "track": 262.6, "seen_pos": 0}]}
+{"now": 1691698664.21, "ac": [{"hex": "aa8c0e", "flight": "N779SH  ", "t": "R22", "category": "A7", "lat": 45.547827, "lon": -122.417633, "alt_baro": 450, "alt_geom": 475, "gs": 55.9, "track": 243.4, "seen_pos": 0}]}
+{"now": 1691699080.96, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.54863, "lon": -122.406787, "alt_baro": -50, "alt_geom": null, "gs": null, "track": null, "seen_pos": 0}]}
+{"now": 1691699375.83, "ac": [{"hex": "aa8c0e", "flight": "N779SH", "t": "R22", "category": null, "lat": 45.543544, "lon": -122.385686, "alt_baro": 700, "alt_geom": null, "gs": null, "track": null, "seen_pos": 0}]}

@@ -120,3 +120,21 @@ def test_adsb_log_roundtrip(tmp_path):
     ref = trk.resample(got.t[(got.t > 1020) & (got.t < 1180)])
     err = np.linalg.norm(got.resample(ref.t).pos - ref.pos, axis=1).max()
     assert err < 15.0
+
+
+def test_trace_fit_finds_truth_and_rejects_reversal():
+    from flyover_scrub.trace import locate_trace, reversal_ratio, trace_ridge
+
+    rng = np.random.default_rng(5)
+    trk = make_track(0.0, 260.0, start_xy=(-9000.0, -400.0), altitude=600.0, speed=60.0, heading_deg=5.0)
+    obs = np.zeros(3)
+    sr = 16000
+    n = sr * 120
+    x = synthesize_flyover(trk, obs, 90.0, n, sr, f0=80.0, rng=rng) * 0.15 + rng.normal(size=n)
+    spec = whitened_spectrogram(x, sr, window_s=2.0)
+    ridge = trace_ridge(spec, f_range=(65.0, 100.0))
+    assert len(ridge) >= 40
+    res = locate_trace(ridge, trk, 90.0, (700.0, -500.0), half_width=2500.0, coarse=250.0, fine=50.0)
+    s = res.summary(np.zeros(2))
+    assert s["top_error_m"] < 400
+    assert reversal_ratio(ridge, trk, 90.0, res) > 3
